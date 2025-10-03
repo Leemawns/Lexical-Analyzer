@@ -1,0 +1,134 @@
+🔍 Summary of HW2: Lexical Analyzer
+
+HW2 is all about writing a lexical analyzer (lexer)—a program that scans source code and breaks it into lexemes (tokens). This is a foundational part of building a compiler, specifically the first phase.
+
+🎯 Goal of the Program
+
+You will:
+1. Read a PL/0 program from input (a file).
+2. Remove comments (both /* ... */ style).
+3. Parse the code into lexemes, identifying:
+   - Keywords
+   - Identifiers
+   - Numbers
+   - Symbols
+4. Build:
+   - A Lexeme Table: human-readable list of lexemes and their types.
+   - A Lexeme List: a list of token types (and values when needed) used as intermediate input for parsing.
+
+🧠 What You Need to Do
+
+✅ 1. Read Input File
+- Load the provided `.txt` file (source code).
+- Ignore all comments
+- Preserve whitespace (only as token separators)
+
+✅ 2. Remove Comments
+- Use `/* comment */` detection
+- Remove everything inside including the delimiters.
+
+✅ 3. Tokenize Input
+- Scan character by character.
+- Group characters into valid lexemes.
+
+✅ 4. Check Token Validity
+- Identifiers:
+  - Start with a letter
+  - Can contain letters + digits
+  - Max length = 11
+- Numbers:
+  - Only digits
+  - Max length = 5 digits
+- Special Symbols:
+  - Must match the symbol table (e.g., +, -, <=, :=, etc.)
+
+✅ 5. Build Lexeme Table
+Format:
+lexeme          token type
+--------------------------
+const           28
+x               2
+:=              20
+10              3
+;               18
+
+✅ 6. Build Lexeme List
+- Output token types in order of appearance.
+- Some include values (identifiers and numbers):
+  28 2 x 20 3 10 18 ...
+- Identifiers and numbers must be followed by their name or value in the list.
+
+❌ What to Exclude
+- Whitespace: Not stored in table or list
+- Comments: Fully stripped out before tokenization
+- Newlines: Not important for this phase
+- Invalid tokens: Should be caught and flagged with an error message
+
+📋 List of Token Types
+| Token     | Symbol      | Type |
+|-----------|-------------|------|
+| const     | keyword     | 28   |
+| var       | keyword     | 29   |
+| procedure | keyword     | 30   |
+| call      | keyword     | 27   |
+| :=        | assign      | 20   |
+| +         | plus        | 4    |
+| -         | minus       | 5    |
+| *         | mult        | 6    |
+| /         | div         | 7    |
+| =         | eql         | 9    |
+| <>        | neq         | 10   |
+| <         | lss         | 11   |
+| <=        | leq         | 12   |
+| >         | gtr         | 13   |
+| >=        | geq         | 14   |
+| ;         | semicolon   | 18   |
+| .         | period      | 19   |
+| ,         | comma       | 17   |
+| (         | lparen      | 15   |
+| )         | rparen      | 16   |
+| begin     | keyword     | 21   |
+| end       | keyword     | 22   |
+| if        | keyword     | 23   |
+| then      | keyword     | 24   |
+| while     | keyword     | 25   |
+| do        | keyword     | 26   |
+| read      | keyword     | 32   |
+| write     | keyword     | 31   |
+| identifier| -           | 2    |
+| number    | -           | 3    |
+
+🧩 What the Assignment Tests You On
+- Reading and parsing raw input files
+- Detecting and skipping comments
+- Using FSM or regex logic to split into valid tokens
+- Proper handling of identifiers, numbers, and special cases (:=, <=, etc.)
+- Building a useful intermediate representation (the lexeme list)
+
+🎮 Gameplan to Approach HW2
+
+🔧 Setup
+1. Read the input file into a string or list.
+2. Strip out comments using a loop or regex.
+3. Initialize token list and lexeme table structures.
+
+🧱 Build Scanner Logic
+4. Use a character-by-character scanner:
+   - Use functions like isalpha(), isdigit(), etc.
+   - For identifiers, build full word before checking if it’s a keyword.
+   - For numbers, stop at first non-digit.
+   - For multi-char symbols (like :=), check next char and match together.
+   - If unknown symbol → report error.
+
+🧮 Track Lexemes
+5. Store (lexeme, token type) in lexeme table.
+6. Build lexeme list using:
+   - Just token number for symbols/keywords
+   - Token + name/value for identifier and number
+
+🧪 Test
+7. Run it on provided input examples (or create your own).
+8. Validate that:
+   - Comments don’t appear
+   - All lexemes are correctly matched
+   - Lexeme list is complete and clean
