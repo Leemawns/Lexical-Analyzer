@@ -127,6 +127,9 @@ static TokenType singleCharTokens[256];
 typedef struct {
     char lexeme[32];
     TokenType token;
+    //error handling:
+    int is_error;
+    char errortext[32]; // this for things like "Number too long" and "Identifier too long"
 } LexemeRow;
 
 // entries for the token list
@@ -209,6 +212,8 @@ static void emit_lexeme(Scanner *S, const char *lx, TokenType tk) {
     strncpy(S->ltab[S->lcount].lexeme, lx, sizeof(S->ltab[0].lexeme)-1); // copies the lexeme
     S->ltab[S->lcount].lexeme[sizeof(S->ltab[0].lexeme)-1] = '\0'; // mark the end of the lexem with nul char
     S->ltab[S->lcount].token = tk; // store the token
+    S->ltab[S->lcount].is_error = 0; // normal row, no error
+    S->ltab[S->lcount].errortext[0] = '\0';
     S->lcount++; // increment the count
 }
 
@@ -241,6 +246,19 @@ static void emit_token_number(Scanner *S, int val) {
     S->tcount++;
 }
 
+//was getting an error when outputting the error lexemes, so I made a separate function:
+static void emit_lexeme_error(Scanner *S, const char *lx, const char *message){
+    if (S->lcount >= LEXEME_CAP)
+        return;
+    strncpy(S->ltab[S->lcount].lexeme, lx, sizeof(S->ltab[0].lexeme)-1);
+    S->ltab[S->lcount].lexeme[sizeof(S->ltab[0].lexeme)-1] = '\0';
+    S->ltab[S->lcount].token = skipsym; // it's not really necessary since it isn't printed, but for the sake of continuity
+    S->ltab[S->lcount].is_error = 1; // mark the row as an error
+    strncpy(S->ltab[S->lcount].errortext, message, sizeof(S->ltab[0].errortext)-1);
+    S->ltab[S->lcount].errortext[sizeof(S->ltab[0].errortext)-1] = '\0';
+    S->lcount++;
+}
+
 // "Scanning Routines" from the lecture
 // skip any number of whitespace and /* something */ (block comments)
 static void skip_whitespace_and_comments(Scanner *S) {
@@ -267,10 +285,11 @@ static void skip_whitespace_and_comments(Scanner *S) {
                 step(S,1);
             }
             if (!closed) { // if we reached EOF before seeing the */, error
-                printf("ERROR: INCOMPLETE COMMENT\n");
+                // i guess the assignment says we don't need to do this one. only number size,
+                // identifier size, and invalid symbols. not unfinished comments.
                 return;
             }
-            continue; // at the end fo a comment, loop to skip more whitespace or comments
+            continue; // at the end of a comment, loop to skip more whitespace or comments
         }
         break;
     }
@@ -279,7 +298,9 @@ static void skip_whitespace_and_comments(Scanner *S) {
 // scans in identifiers or reserved words that start with a letter
 static void scan_identifier_or_reserved(Scanner *S) {
     char buf[ID_MAX_LEN+1]; // buffer for spelling
+    char full[32]; // error handling
     int k = 0; // keeps track of the number of characters stored
+    int f = 0; // error handling, same as number too long
     size_t start = S->pos;  // to compute length
 
     while (!at_end(S)) {
@@ -287,14 +308,18 @@ static void scan_identifier_or_reserved(Scanner *S) {
         if (isalpha(c) || isdigit(c)) { // as long as there's a letter or digit, then the lexeme continues
             if (k < ID_MAX_LEN) // check the length cap and store it if it's under the cap
                 buf[k++] = (char)c; 
+            if(f < (int)sizeof(full)-1)
+                full[f++] = (char)c;
             step(S,1);
         } else 
             break; // stoped when reaching a character that isnt a char or digit
     }
     buf[k] = '\0'; // nul to the end of of the buffer.
+    full[f] = '\0';
 
     if ((int)(S->pos - start) > ID_MAX_LEN) { // if the length is bigger than the cap, error
-        printf("ERROR: IDENTIFIER IS TOO LONG\n");
+        emit_lexeme_error(S, full, "Identifier too long");
+        emit_token_simple(S, skipsym);
         return;
     }
 
@@ -313,18 +338,25 @@ static void scan_identifier_or_reserved(Scanner *S) {
 // scans a number with one or more digits
 static void scan_number(Scanner *S) {
     char buf[NUM_MAX_LEN+1]; // same setup as previous
+    char full[32];
     int k = 0;
+    int f = 0; // track fullness in full array
     size_t start = S->pos;
 
     while (!at_end(S) && isdigit(peekc(S,0))) {
+        int ch = peekc(S,0);
         if (k < NUM_MAX_LEN) 
-            buf[k++] = (char)peekc(S,0);
+            buf[k++] = (char)ch;
+        if (f < (int)sizeof(full)-1)
+            full[f++] = (char)ch;
         step(S,1);
     }
     buf[k] = '\0';
+    full[f] = '\0';
 
     if ((int)(S->pos - start) > NUM_MAX_LEN) { // checks if too many digits, error
-        printf("ERROR: NUMBER TOO LONG\n");
+        emit_lexeme_error(S, full, "Number too long"); // got this from the assignment pdf
+        emit_token_simple(S, skipsym);
         return;
     }
 
@@ -340,16 +372,18 @@ static void scan_symbol_or_error(Scanner *S) {
     // handle multiple character operators first like :=, >=, <=, etc.
 
     if (c == ':') {
-        if (peekc(S,1) == '=') {
-            emit_lexeme(S, ":=", becomessym);
-            emit_token_simple(S, becomessym);
-            step(S,2);
-        } else {
-            printf("Error: Invalid symbol ':'\n");
-            step(S,1);
-        }
-        return;
+    if (peekc(S,1) == '=') {
+        emit_lexeme(S, ":=", becomessym);
+        emit_token_simple(S, becomessym);
+        step(S,2);
+    } else {
+        char lx[2] = {':', 0};
+        emit_lexeme_error(S, lx, "Invalid symbol");
+        emit_token_simple(S, skipsym);
+        step(S,1);
     }
+    return;
+}
     if (c == '<') {
         if (peekc(S,1) == '=') { 
             emit_lexeme(S,"<=",leqsym); 
@@ -393,7 +427,6 @@ static void scan_symbol_or_error(Scanner *S) {
 
     // if any other symbol, invalid. error
     if (!at_end(S)) {
-        printf("ERROR: INVALID SYMBOL\n");
         step(S,1);
     }
 }
@@ -449,7 +482,10 @@ int main(int argc, char **argv) {
     printf("\nLexeme Table:\n");
     printf("\nlexeme  token type\n");
     for (int i = 0; i < S.lcount; i++) {
-        printf("%-7s %d\n", S.ltab[i].lexeme, S.ltab[i].token);
+        if(S.ltab[i].is_error) // if true, print message instead of token code
+            printf("%-7s %s\n", S.ltab[i].lexeme, S.ltab[i].errortext);
+        else
+            printf("%-7s %d\n", S.ltab[i].lexeme, S.ltab[i].token);
     }
 
     // lastly, the token list
