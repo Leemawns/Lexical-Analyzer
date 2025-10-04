@@ -7,10 +7,10 @@ Author : Eric Lemons, Leonardo Faife
 Language : C ( only )
 
 To Compile :
-    gcc - O2 - std = c11 -o lex lex . c
+    gcc -O2 -std=c11 -o lex lex.c
 
 To Execute ( on Eustis ):
-    ./ lex < input file >
+    ./lex <input file>
 
 where :
     <input file> is the path to the PL /0 source program
@@ -444,15 +444,16 @@ int main(int argc, char **argv) {
         scan_symbol_or_error(&S);
     }
 
-    // lexeme table
+    // lexeme table print, I know it's not necessary but I tried to make the
+    // formatting as close to the example output as possible.
     printf("\nLexeme Table:\n");
-    printf("lexeme  token type\n");
+    printf("\nlexeme  token type\n");
     for (int i = 0; i < S.lcount; i++) {
         printf("%-7s %d\n", S.ltab[i].lexeme, S.ltab[i].token);
     }
 
     // lastly, the token list
-    printf("\nToken List:\n");
+    printf("\nToken List:\n\n");
     for (int i = 0; i < S.tcount; i++) {
         TokenRow *t = &S.tlist[i];
         if (t->token == identsym) { // for identifiers, print code + name
