@@ -370,13 +370,12 @@ static void scan_symbol_or_error(Scanner *S) {
     int c = peekc(S,0);
 
     // handle multiple character operators first like :=, >=, <=, etc.
-
     if (c == ':') {
     if (peekc(S,1) == '=') {
         emit_lexeme(S, ":=", becomessym);
         emit_token_simple(S, becomessym);
         step(S,2);
-    } else {
+    } else { // invalid symbol, mark it
         char lx[2] = {':', 0};
         emit_lexeme_error(S, lx, "Invalid symbol");
         emit_token_simple(S, skipsym);
@@ -425,8 +424,11 @@ static void scan_symbol_or_error(Scanner *S) {
         return;
     }
 
-    // if any other symbol, invalid. error
+    // if any other symbol, invalid. mark error
     if (!at_end(S)) {
+        char lx[2] = {(char)peekc(S,0), 0};
+        emit_lexeme_error(S, lx, "Invalid symbol");
+        emit_token_simple(S, skipsym);
         step(S,1);
     }
 }
